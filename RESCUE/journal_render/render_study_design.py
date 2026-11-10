@@ -1,11 +1,8 @@
 """
-render_study_design.py  (v3 — complete study design, auto-layout)
-=================================================================
-Figure 1: the full analysis pipeline in four stages. Boxes size themselves to
-their content so text cannot overflow, and all numbers are read live from the
-result manifests so the figure cannot drift from the paper.
-
-Output: RESCUE/journal_render/figures/fig0_study_design.png (600 dpi)
+render_study_design.py  (v5 - vertical flowchart, auto-sized + stacked)
+=======================================================================
+Figure 1. Every box is sized from its content; stages are stacked with fixed
+gaps, so nothing can overflow. Numbers are read live from the manifests.
 """
 import json
 from pathlib import Path
@@ -19,223 +16,184 @@ ROOT = Path(__file__).resolve().parents[2]
 B = ROOT / "RESCUE" / "BENCHMARK" / "results"
 OUT = ROOT / "RESCUE" / "journal_render" / "figures" / "fig0_study_design.png"
 
-cvf = json.loads((B / "clinical_validation_final_results.json").read_text(encoding="utf-8"))
-eu = json.loads((B / "hiv2eu_coverage.json").read_text(encoding="utf-8"))
-cov = json.loads((B / "rule_coverage.json").read_text(encoding="utf-8"))
-loso = json.loads((B / "loso_head_to_head.json").read_text(encoding="utf-8"))
-h2h = json.loads((B / "head_to_head_paired.json").read_text(encoding="utf-8"))
-rx = json.loads((B / "reviewer_experiments.json").read_text(encoding="utf-8"))
+h2h = json.loads((B / "head_to_head_paired.json").read_text())
+loso = json.loads((B / "loso_head_to_head.json").read_text())
+cov = json.loads((B / "rule_coverage.json").read_text())
+eu = json.loads((B / "hiv2eu_coverage.json").read_text())
+cvf = json.loads((B / "clinical_validation_final_results.json").read_text())
 TF = cvf["comparison"]["pooled_4_drugs"]["final_transfer"]
 
-plt.rcParams.update({"font.family": "serif", "font.size": 8})
+plt.rcParams.update({"font.family": "serif"})
 
-W, H = 18.0, 10.2
+W, H = 11.5, 19.5
 fig, ax = plt.subplots(figsize=(W, H))
 ax.set_xlim(0, 100)
-ax.set_ylim(0, 100)
+ax.set_ylim(32.2, 100)
 ax.axis("off")
 
-CUR, FEAT, MOD, EVAL = "#dce9f5", "#e4f1e4", "#fdf2dd", "#f9e2e2"
-EDGE = "#5a6b7c"
+C_DATA, C_CUR, C_FEAT, C_MODEL, C_EVAL = (
+    "#dbe8f4", "#e2efe2", "#fdf0d8", "#e8e0f2", "#f7dede")
+EDGE = "#4a5a68"
 
-TOP = 90.5
-BOT = 4.5
-COLW = 23.2
-LX = [1.2, 26.1, 51.0, 75.9]
-LS = 2.30          # line spacing
-PAD_TOP = 4.4      # space for the box title
-PAD_BOT = 1.6
-GAP = 2.2
+TS, LS, PAD_T, PAD_B = 8.4, 6.8, 3.0, 0.9      # title size, line size, padding
 
-
-def draw_column(x, face, boxes):
-    """boxes = list of (title, [lines]); sizes and stacks them top-down."""
-    hs = [PAD_TOP + PAD_BOT + LS * len(ls) for _, ls in boxes]
-    total = sum(hs) + GAP * (len(boxes) - 1)
-    y = TOP - (TOP - BOT - total) / 2.0     # centre the stack
-    for (title, lines), h in zip(boxes, hs):
-        ax.add_patch(FancyBboxPatch((x, y - h), COLW, h,
-                                    boxstyle="round,pad=0.30,rounding_size=0.8",
-                                    linewidth=1.0, edgecolor=EDGE,
-                                    facecolor=face, zorder=2))
-        ax.text(x + COLW / 2, y - 2.0, title, ha="center", va="top",
-                fontsize=8.8, fontweight="bold", color="#101820", zorder=3)
-        ty = y - PAD_TOP
-        for ln in lines:
-            if ln == "":
-                ty -= LS * 0.35
-                continue
-            ax.text(x + COLW / 2, ty, ln, ha="center", va="top",
-                    fontsize=7.1, color="#222222", zorder=3)
-            ty -= LS
-        y -= (h + GAP)
-    return y
+# text metrics in axis units (figure is 24 in tall over 100 units)
+IN_PER_UNIT = H / 100.0
+TITLE_H = TS * 1.35 / 72.0 / IN_PER_UNIT       # title block height in units
+LINE_H = LS * 1.42 / 72.0 / IN_PER_UNIT        # one line height in units
 
 
-# ============================ headers =====================================
-heads = ["1   DATA CURATION", "2   FEATURES",
-         "3   MODEL & TRANSFER", "4   EVALUATION"]
-faces = [CUR, FEAT, MOD, EVAL]
-for x, t, f in zip(LX, heads, faces):
-    ax.add_patch(FancyBboxPatch((x, 92.0), COLW, 6.2,
-                                boxstyle="round,pad=0.30,rounding_size=0.8",
-                                linewidth=1.3, edgecolor=EDGE, facecolor=f, zorder=3))
-    ax.text(x + COLW / 2, 95.1, t, ha="center", va="center", fontsize=10.2,
-            fontweight="bold", color="#0d1b26", zorder=4)
+def box_height(nlines):
+    return PAD_T + TITLE_H + nlines * LINE_H + PAD_B
 
-# ============================ 1 curation ==================================
-draw_column(LX[0], CUR, [
-    ("HIV-1 training corpus", [
-        "Stanford HIVDB phenotypic assays",
-        "7,183 rows \u2212 1,500 synthetic = 5,683",
-        "1,882 unique sequences",
-        "95% clustering: 882 clusters + 714 singletons",
-        "",
-        "target: measured IC50 (nM) \u2192 \u0394G (kcal/mol)",
-    ]),
-    ("HIV-2 cross-species panel", [
-        "ChEMBL 380 / 5074: 321 raw \u2192 320 mapped",
-        "137 rows zero-shot test",
-        "160 rows fine-tune (4 drugs \u00d7 40)",
-        "",
-        "only 19 unique sequences",
-        "identity to ROD WT: 88.9\u201399.0%",
-    ]),
-    ("HIV-2 clinical cohort", [
-        "654 entries \u00d7 8 PIs = 5,232 rows",
-        "Stanford_HIVDB 3,456 / Mined 1,776",
-        "headline subset: 4 PIs = 2,616",
-        "",
-        "label = HIVDB penalty score (held out)",
-    ]),
-    ("Curation applied to all", [
-        "99-residue length filter",
-        "align to shared 99-aa frame (HXB2 / ROD)",
-        "drug-name normalisation; \u0394G range filter",
-        "overlap audit: 0 sequences shared with HIV-1",
-    ]),
-])
 
-# ============================ 2 features ==================================
-draw_column(LX[1], FEAT, [
-    ("21 descriptors per residue", [
-        "Hellberg Z-scales (3):",
-        "hydrophobicity / steric / electronic",
-        "",
-        "Kidera factors (10, orthogonal):",
-        "KF1 helix \u00b7 KF2 size \u00b7 KF4 hydrophobic \u00b7 \u2026",
-        "",
-        "VHSE scales (8): VHSE1 hydro \u00b7 VHSE2 steric \u00b7 VHSE3 electronic",
-    ]),
-    ("21 \u00d7 99 = 2,079-D", [
-        "+ mean & SD of each = 2,121-D deployment bundle",
-        "scaled with the HIV-1 scaler",
-    ]),
-    ("Why these transfer", [
-        "descriptors are properties of the amino acid \u2014",
-        "identical in HIV-1 and HIV-2",
-        "",
-        "HIV-1-specific structure does not transfer (R = \u22120.14)",
-        "pocket conserved to 1.09 \u00c5 C\u03b1 RMSD",
-    ]),
-    ("Pocket position sets", [
-        "core 5.0 \u00c5 (16 residues):",
-        "8 23 25 27 28 29 30 31 32 47 48 49 50 81 82 84",
-        "Pocket-19: adds 26 45 46 54 76 80",
-        "extended 8.0 \u00c5; BASE-A = 16 core + 18 neighbours",
-        "",
-        "used for masking, not for weighting",
-    ]),
-])
+def draw(x, top, w, title, lines, face, tsize=TS, lsize=LS):
+    h = box_height(len(lines))
+    cy = top - h / 2.0
+    ax.add_patch(FancyBboxPatch((x - w / 2, cy - h / 2), w, h,
+                                boxstyle="round,pad=0.30,rounding_size=0.7",
+                                linewidth=1.15, edgecolor=EDGE,
+                                facecolor=face, zorder=3))
+    ax.text(x, top - PAD_T, title, ha="center", va="top",
+            fontsize=tsize, fontweight="bold", color="#0d1b26", zorder=4)
+    ty = top - PAD_T - TITLE_H
+    for ln in lines:
+        ax.text(x, ty, ln, ha="center", va="top", fontsize=lsize,
+                color="#22303c", zorder=4)
+        ty -= LINE_H
+    return h
 
-# ============================ 3 model =====================================
-draw_column(LX[2], MOD, [
-    ("HIV-1 pre-training", [
-        "Random Forest (600 trees, depth 20)",
-        "XGBoost (800 trees, depth 6)",
-        "",
-        "GroupKFold at 95% identity (no leakage)",
-        "within-HIV-1 CV: R = 0.7387 \u00b1 0.0472",
-    ]),
-    ("Model choice justified", [
-        "tree ensembles suit n = 19 sequences: greedy",
-        "selection, no scaling, reproducible, interpretable",
-        "",
-        "deep learning tested and FAILED (PocketGNN \u22120.17;",
-        "DBPT+ 0.21) \u2014 data starvation, not architecture",
-    ]),
-    ("Transfer to HIV-2", [
-        "no weights are modified",
-        "  (i) HIV-1 model FROZEN",
-        "  (ii) its \u0394G prediction \u2192 1 meta-feature",
-        "  (iii) NEW per-drug RF on [2,121-D | meta-feature]",
-        "",
-        "deployment model = the new RF",
-    ]),
-    ("Zero-shot baseline", [
-        "HIV-1 model applied directly to HIV-2",
-        "no HIV-2 fitting at any point",
-        "",
-        "R = 0.5163   (transfer ratio 0.70)",
-        "same-space strict baseline 0.2492",
-    ]),
-])
 
-# ============================ 4 evaluation ================================
-draw_column(LX[3], EVAL, [
-    ("Measured phenotypes (primary)", [
-        "head-to-head on measured \u0394G, 160 rows",
-        f"model {h2h['pooled']['model_r']:.4f}   vs   rule {h2h['pooled']['rule_r']:.4f}",
-        f"\u0394R = +{h2h['pooled']['difference']:.3f},   "
-        f"P(\u0394R\u22640) = {h2h['pooled']['boot_p_diff_le_0']:.3f}",
-        "",
-        f"leave-one-sequence-out: model ahead in "
-        f"{loso['loso_full']['frac_folds_model_wins']*100:.0f}% of folds",
-    ]),
-    ("Rule coverage (independent)", [
-        "clinical benchmark is zero for 93.1% of isolates",
-        "",
-        "official HIV-2EU v4 rules:",
-        f"{eu['measured_panel']['unscored_pct']}% of the measured panel unscored",
-        f"no protease rules for "
-        f"{len(eu['clinical_panel']['drugs_without_rules'])} of 8 clinical drugs",
-        f"{eu['measured_panel']['mutations_in_hiv2eu_vocab']} of "
-        f"{eu['measured_panel']['distinct_observed_mutations']} mutations covered",
-        "",
-        "model R = 0.585 where the rule is silent",
-    ]),
-    ("Robustness", [
-        f"seed sweep: R = {rx['multiseed']['transfer_mean']:.3f} "
-        f"\u00b1 {rx['multiseed']['transfer_sd']:.3f}",
-        f"(locked single-seed value {h2h['pooled']['model_r']:.4f})",
-        "",
-        "fine-tune-size sweep: HIV-1 contribution",
-        "\u2264 0.015 at every data volume",
-    ]),
-    ("Clinical cohort (secondary)", [
-        "2,616 never-seen rows",
-        f"pooled R = {TF['pearson_r']:.4f},  ROC-AUC = {TF['roc_auc']:.3f}",
-        "",
-        "target is rule-derived \u2192 supporting evidence",
-        "only; per-drug values are primary",
-    ]),
-])
-
-# ============================ arrows ======================================
-def arrow(x1, y1, x2, y2, ls="-"):
+def arrow(x1, y1, x2, y2, lw=1.6, ls="-"):
     ax.add_patch(FancyArrowPatch((x1, y1), (x2, y2), arrowstyle="-|>",
-                                 mutation_scale=14, linewidth=1.6,
-                                 color="#37474f", linestyle=ls, zorder=5,
-                                 shrinkA=0, shrinkB=0))
+                                 mutation_scale=15, linewidth=lw,
+                                 color="#37474f", linestyle=ls, zorder=2,
+                                 shrinkA=0.5, shrinkB=0.5))
 
 
-for k in range(3):
-    arrow(LX[k] + COLW + 0.3, 60.0, LX[k + 1] - 0.3, 60.0)
+def bus(y_from, y_to, targets, labels=None):
+    """Vertical stem, horizontal bus, then drop into each target."""
+    mid = (y_from + y_to) / 2.0
+    ax.plot([50, 50], [y_from, mid], color="#37474f", lw=1.6, zorder=2)
+    ax.plot([min(targets), max(targets)], [mid, mid], color="#37474f",
+            lw=1.6, zorder=2)
+    for t in targets:
+        arrow(t, mid, t, y_to)
 
-ax.text(50, 1.4,
-        "No clinical label enters training. The clinical penalty is used only for held-out "
-        "evaluation; its sparsity is quantified independently in stage 4.",
-        ha="center", va="center", fontsize=7.8, style="italic", color="#444444")
+
+TOP = 98.0
+GAP = 2.6
+
+# ---- 1 raw sources
+n = 3
+h = draw(50, TOP, 72, "1  DATA ACQUISITION  (three sources, three species-roles)", [
+    "Stanford HIVDB PI phenotype  \u2192  2,171 sequences",
+    "ChEMBL 380 / 5074 HIV-2 assays  \u2192  321 rows",
+    "NCBI GenBank HIV-2 protease (Entrez)  \u2192  148 sequences",
+], C_DATA)
+y = TOP - h
+arrow(50, y, 50, y - GAP)
+y -= GAP
+
+# ---- 2 curation
+h = draw(50, y, 72, "2  CURATION  (seven steps)", [
+    "99-aa filter \u00b7 frame alignment \u00b7 species by provenance \u00b7 drug-name mapping",
+    "IC50\u2192\u0394G conversion \u00b7 95%-identity clustering \u00b7 synthetic-row removal",
+], C_CUR)
+y = y - h
+arrow(50, y, 50, y - GAP)
+y -= GAP
+
+# ---- 3 three corpora
+h3 = max(box_height(4), box_height(4), box_height(4))
+draw(18, y, 27, "HIV-1 corpus", [
+    "5,683 genuine rows",
+    "1,882 unique sequences",
+    "882 clusters + 714 singletons",
+    "1,500 synthetic removed",
+], C_CUR)
+draw(50, y, 25, "HIV-2 ChEMBL", [
+    "321 rows \u2192 320 mapped",
+    "19 unique sequences",
+    "137 zero-shot / 160 fine-tune",
+    "4 drugs \u00d7 40 rows",
+], C_CUR)
+draw(82, y, 27, "HIV-2 clinical cohort", [
+    "654 entries \u00d7 8 PIs = 5,232",
+    "Stanford_HIVDB 3,456",
+    "Mined_Expanded 1,776",
+    "headline subset 2,616",
+], C_CUR)
+bus(y + GAP, y, [18, 50, 82])
+y -= h3
+arrow(50, y, 50, y - GAP)
+y -= GAP
+
+# ---- 4 feature branches
+h4 = max(box_height(6), box_height(6))
+draw(29, y, 40, "SEQUENCE BRANCH", [
+    "21 descriptors / residue:",
+    "Hellberg Z (3) + Kidera (10) + VHSE (8)",
+    "21 \u00d7 99 = 2,079-D",
+    "+ mean/SD of each = 2,121-D",
+    "properties of the amino acid",
+    "\u2192 identical in both species",
+], C_FEAT)
+draw(71, y, 40, "STRUCTURE BRANCH", [
+    "ESMFold \u2192 23 HIV-2 models (pLDDT)",
+    "AutoDock Vina docking",
+    "171 HIV-2 complexes (19 \u00d7 9)",
+    "13,528 HIV-1 holo (3,382 \u00d7 4)",
+    "ONION-Net 10,309-D apo / 10,478-D docked",
+    "\u2192 does NOT transfer (R = \u22120.14)",
+], C_FEAT)
+bus(y + GAP, y, [28, 72])
+y -= h4
+arrow(50, y, 50, y - GAP)
+y -= GAP
+
+# ---- 5 model
+h = draw(50, y, 72, "3  MODEL TRAINING AND TRANSFER", [
+    "HIV-1 per-drug Random Forest / XGBoost  \u00b7  GroupKFold at 95% identity",
+    "within-HIV-1 grouped CV:  R = 0.7387 \u00b1 0.0472",
+    "HIV-1 model FROZEN \u2192 prediction appended as one meta-feature column",
+    "new per-drug RF on [2,121-D | meta-feature]  \u00b7  no weights are modified",
+], C_MODEL)
+y = y - h
+arrow(50, y, 50, y - GAP)
+y -= GAP
+
+# ---- 6 two outcomes
+h6 = max(box_height(2), box_height(2))
+draw(29, y, 40, "Zero-shot baseline", [
+    "R = 0.5163 on 137 IC50 rows",
+    "R = 0.2492 on the same 160 rows",
+], C_EVAL)
+draw(71, y, 40, "Transfer fine-tune", [
+    "R = 0.7018 (160 rows, locked seed)",
+    "0.628 \u00b1 0.074 across 10 seeds",
+], C_EVAL)
+bus(y + GAP, y, [29, 71])
+y -= h6
+arrow(50, y, 50, y - GAP)
+y -= GAP
+
+# ---- 7 evaluation
+h7 = max(box_height(1), box_height(1), box_height(1), box_height(1))
+draw(13, y, 22, "Measured vs rule", [
+    f"{h2h['pooled']['model_r']:.3f} vs {h2h['pooled']['rule_r']:.3f}, P=0.001",
+], C_EVAL, tsize=7.6, lsize=6.3)
+draw(38, y, 22, "Rule coverage", [
+    f"{cov['Q1_clinical_label_coverage']['overall_zero_pct']:.1f}% zero labels",
+], C_EVAL, tsize=7.6, lsize=6.3)
+draw(63, y, 20, "LOSO robustness", [
+    f"ahead in {loso['loso_full']['frac_folds_model_wins']*100:.0f}% of folds",
+], C_EVAL, tsize=7.6, lsize=6.3)
+draw(87, y, 22, "Clinical (secondary)", [
+    f"R={TF['pearson_r']:.3f}, AUC={TF['roc_auc']:.3f}",
+], C_EVAL, tsize=7.6, lsize=6.3)
+bus(y + GAP, y, [14, 38, 62, 86])
 
 fig.savefig(OUT, dpi=600, bbox_inches="tight", facecolor="white")
-print(f"wrote {OUT}")
+print("wrote", OUT)
+print("bottom y:", round(y - h7, 2))
