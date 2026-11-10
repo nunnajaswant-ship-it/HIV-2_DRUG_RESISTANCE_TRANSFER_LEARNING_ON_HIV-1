@@ -86,7 +86,7 @@ GAP = 2.6
 
 # ---- 1 raw sources
 n = 3
-h = draw(50, TOP, 72, "1  DATA ACQUISITION  (three sources, three species-roles)", [
+h = draw(50, TOP, 90, "1  DATA ACQUISITION  (three sources, three species-roles)", [
     "Stanford HIVDB PI phenotype  \u2192  2,171 sequences",
     "ChEMBL 380 / 5074 HIV-2 assays  \u2192  321 rows",
     "NCBI GenBank HIV-2 protease (Entrez)  \u2192  148 sequences",
@@ -96,7 +96,7 @@ arrow(50, y, 50, y - GAP)
 y -= GAP
 
 # ---- 2 curation
-h = draw(50, y, 72, "2  CURATION  (seven steps)", [
+h = draw(50, y, 90, "2  CURATION  (seven steps)", [
     "99-aa filter \u00b7 frame alignment \u00b7 species by provenance \u00b7 drug-name mapping",
     "IC50\u2192\u0394G conversion \u00b7 95%-identity clustering \u00b7 synthetic-row removal",
 ], C_CUR)
@@ -106,32 +106,32 @@ y -= GAP
 
 # ---- 3 three corpora
 h3 = max(box_height(4), box_height(4), box_height(4))
-draw(18, y, 27, "HIV-1 corpus", [
+draw(16, y, 28, "HIV-1 corpus", [
     "5,683 genuine rows",
     "1,882 unique sequences",
     "882 clusters + 714 singletons",
     "1,500 synthetic removed",
 ], C_CUR)
-draw(50, y, 25, "HIV-2 ChEMBL", [
+draw(50, y, 26, "HIV-2 ChEMBL", [
     "321 rows \u2192 320 mapped",
     "19 unique sequences",
     "137 zero-shot / 160 fine-tune",
     "4 drugs \u00d7 40 rows",
 ], C_CUR)
-draw(82, y, 27, "HIV-2 clinical cohort", [
+draw(84, y, 30, "HIV-2 clinical cohort", [
     "654 entries \u00d7 8 PIs = 5,232",
     "Stanford_HIVDB 3,456",
     "Mined_Expanded 1,776",
     "headline subset 2,616",
 ], C_CUR)
-bus(y + GAP, y, [18, 50, 82])
+bus(y + GAP, y, [16, 50, 84])
 y -= h3
 arrow(50, y, 50, y - GAP)
 y -= GAP
 
 # ---- 4 feature branches
 h4 = max(box_height(6), box_height(6))
-draw(29, y, 40, "SEQUENCE BRANCH", [
+draw(27, y, 42, "SEQUENCE BRANCH", [
     "21 descriptors / residue:",
     "Hellberg Z (3) + Kidera (10) + VHSE (8)",
     "21 \u00d7 99 = 2,079-D",
@@ -139,7 +139,7 @@ draw(29, y, 40, "SEQUENCE BRANCH", [
     "properties of the amino acid",
     "\u2192 identical in both species",
 ], C_FEAT)
-draw(71, y, 40, "STRUCTURE BRANCH", [
+draw(73, y, 42, "STRUCTURE BRANCH", [
     "ESMFold \u2192 23 HIV-2 models (pLDDT)",
     "AutoDock Vina docking",
     "171 HIV-2 complexes (19 \u00d7 9)",
@@ -147,13 +147,13 @@ draw(71, y, 40, "STRUCTURE BRANCH", [
     "ONION-Net 10,309-D apo / 10,478-D docked",
     "\u2192 does NOT transfer (R = \u22120.14)",
 ], C_FEAT)
-bus(y + GAP, y, [28, 72])
+bus(y + GAP, y, [26, 74])
 y -= h4
 arrow(50, y, 50, y - GAP)
 y -= GAP
 
 # ---- 5 model
-h = draw(50, y, 72, "3  MODEL TRAINING AND TRANSFER", [
+h = draw(50, y, 90, "3  MODEL TRAINING AND TRANSFER", [
     "HIV-1 per-drug Random Forest / XGBoost  \u00b7  GroupKFold at 95% identity",
     "within-HIV-1 grouped CV:  R = 0.7387 \u00b1 0.0472",
     "HIV-1 model FROZEN \u2192 prediction appended as one meta-feature column",
@@ -165,15 +165,15 @@ y -= GAP
 
 # ---- 6 two outcomes
 h6 = max(box_height(2), box_height(2))
-draw(29, y, 40, "Zero-shot baseline", [
+draw(27, y, 42, "Zero-shot baseline", [
     "R = 0.5163 on 137 IC50 rows",
     "R = 0.2492 on the same 160 rows",
 ], C_EVAL)
-draw(71, y, 40, "Transfer fine-tune", [
+draw(73, y, 42, "Transfer fine-tune", [
     "R = 0.7018 (160 rows, locked seed)",
     "0.628 \u00b1 0.074 across 10 seeds",
 ], C_EVAL)
-bus(y + GAP, y, [29, 71])
+bus(y + GAP, y, [27, 73])
 y -= h6
 arrow(50, y, 50, y - GAP)
 y -= GAP
@@ -192,7 +192,7 @@ draw(63, y, 20, "LOSO robustness", [
 draw(87, y, 22, "Clinical (secondary)", [
     f"R={TF['pearson_r']:.3f}, AUC={TF['roc_auc']:.3f}",
 ], C_EVAL, tsize=7.6, lsize=6.3)
-bus(y + GAP, y, [14, 38, 62, 86])
+bus(y + GAP, y, [13, 38, 63, 87])
 
 fig.savefig(OUT, dpi=600, bbox_inches="tight", facecolor="white")
 print("wrote", OUT)
